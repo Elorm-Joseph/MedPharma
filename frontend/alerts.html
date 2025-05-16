@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Alerts - Pharmacy Management System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/background.css" />
+</head>
+<body>
+  <!-- Background Slideshow -->
+  <div class="background-slideshow">
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+  </div>
+
+  <!-- Navigation -->
+  <div id="nav-placeholder"></div>
+
+  <div class="content-overlay">
+    <div class="alerts-container">
+      <h1>System Alerts</h1>
+
+      <div class="alert-filters">
+        <select id="alertType" onchange="filterAlerts()">
+          <option value="all">All Alerts</option>
+          <option value="stock">Low Stock</option>
+          <option value="expiry">Expiring Products</option>
+          <option value="orders">Order Status</option>
+          <option value="system">System Alerts</option>
+        </select>
+
+        <select id="alertPriority" onchange="filterAlerts()">
+          <option value="all">All Priorities</option>
+          <option value="high">High Priority</option>
+          <option value="medium">Medium Priority</option>
+          <option value="low">Low Priority</option>
+        </select>
+
+        <button onclick="markAllRead()">Mark All as Read</button>
+      </div>
+
+      <div class="alerts-grid" id="alertsGrid">
+        <!-- Alerts will be loaded here -->
+      </div>
+
+      <!-- Alert Settings Modal -->
+      <div id="settingsModal" class="modal">
+        <div class="modal-content">
+          <h2>Alert Settings</h2>
+          <form id="alertSettingsForm">
+            <div class="form-group">
+              <h3>Stock Level Alerts</h3>
+              <label>
+                <input type="checkbox" id="lowStockAlerts" checked />
+                Enable low stock alerts
+              </label>
+              <div class="threshold-setting">
+                <label for="lowStockThreshold">Low stock threshold:</label>
+                <input type="number" id="lowStockThreshold" value="10" min="1" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <h3>Expiry Alerts</h3>
+              <label>
+                <input type="checkbox" id="expiryAlerts" checked />
+                Enable expiry alerts
+              </label>
+              <div class="threshold-setting">
+                <label for="expiryThreshold">Days before expiry:</label>
+                <input type="number" id="expiryThreshold" value="30" min="1" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <h3>Notification Methods</h3>
+              <label>
+                <input type="checkbox" id="emailNotifications" checked />
+                Email notifications
+              </label>
+              <label>
+                <input type="checkbox" id="systemNotifications" checked />
+                System notifications
+              </label>
+            </div>
+
+            <button type="submit">Save Settings</button>
+            <button type="button" onclick="closeModal('settingsModal')">Cancel</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div id="footer-placeholder"></div>
+
+  <script>
+    // Load navigation and footer
+    fetch('components/navigation.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('nav-placeholder').innerHTML = html;
+      });
+
+    fetch('components/footer.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('footer-placeholder').innerHTML = html;
+      });
+
+    // Load alerts
+    async function loadAlerts() {
+      try {
+        const response = await fetch('/api/alerts');
+        const alerts = await response.json();
+        displayAlerts(alerts);
+      } catch (error) {
+        console.error('Error loading alerts:', error);
+      }
+    }
+
+    function displayAlerts(alerts) {
+      const grid = document.getElementById('alertsGrid');
+      grid.innerHTML = alerts.map(alert => `
+        <div class="alert-card ${alert.priority} ${alert.read ? 'read' : 'unread'}">
+          <div class="alert-header">
+            <span class="alert-type">${alert.type}</span>
+            <span class="alert-priority">${alert.priority}</span>
+          </div>
+          <div class="alert-content">
+            <h3>${alert.title}</h3>
+            <p>${alert.message}</p>
+            <span class="alert-time">${new Date(alert.createdAt).toLocaleString()}</span>
+          </div>
+          <div class="alert-actions">
+            <button onclick="markAsRead('${alert._id}')" 
+              ${alert.read ? 'disabled' : ''}>
+              Mark as Read
+            </button>
+            <button onclick="viewDetails('${alert._id}')">View Details</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function markAsRead(alertId) {
+      try {
+        const response = await fetch(`/api/alerts/${alertId}/read`, {
+          method: 'POST'
+        });
+        if (response.ok) {
+          loadAlerts();
+        }
+      } catch (error) {
+        console.error('Error marking alert as read:', error);
+      }
+    }
+
+    async function markAllRead() {
+      try {
+        const response = await fetch('/api/alerts/mark-all-read', {
+          method: 'POST'
+        });
+        if (response.ok) {
+          loadAlerts();
+        }
+      } catch (error) {
+        console.error('Error marking all alerts as read:', error);
+      }
+    }
+
+    function filterAlerts() {
+      const type = document.getElementById('alertType').value;
+      const priority = document.getElementById('alertPriority').value;
+      loadAlerts(type, priority);
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', loadAlerts);
+  </script>
+
+  <style>
+    .alerts-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .alert-filters {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .alerts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .alert-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .alert-card.unread {
+      border-left: 4px solid #007bff;
+    }
+
+    .alert-card.read {
+      opacity: 0.7;
+    }
+
+    .alert-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .alert-type {
+      font-weight: bold;
+    }
+
+    .alert-priority {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.8em;
+    }
+
+    .high .alert-priority {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .medium .alert-priority {
+      background-color: #ffc107;
+      color: black;
+    }
+
+    .low .alert-priority {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .alert-content {
+      margin-bottom: 15px;
+    }
+
+    .alert-time {
+      font-size: 0.8em;
+      color: #666;
+    }
+
+    .alert-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background-color: white;
+      margin: 10% auto;
+      padding: 20px;
+      width: 80%;
+      max-width: 500px;
+      border-radius: 8px;
+    }
+
+    .threshold-setting {
+      margin-left: 20px;
+      margin-top: 5px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .alert-card, .modal-content {
+        background-color: #333;
+        color: white;
+      }
+
+      .alert-time {
+        color: #aaa;
+      }
+
+      select, input {
+        background-color: #444;
+        color: white;
+        border: 1px solid #555;
+      }
+    }
+  </style>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Purchase Orders - Pharmacy Management System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <h1>Purchase Orders</h1>
+  <section>
+    <form id="purchaseOrderForm">
+      <label for="supplier">Supplier:</label>
+      <input type="text" id="supplier" name="supplier" required />
+      <label for="orderDate">Order Date:</label>
+      <input type="date" id="orderDate" name="orderDate" required />
+      <label for="expectedDeliveryDate">Expected Delivery Date:</label>
+      <input type="date" id="expectedDeliveryDate" name="expectedDeliveryDate" />
+      <button type="button" onclick="addItem()">Add Item</button>
+      <div id="itemsContainer"></div>
+      <button type="submit">Submit Purchase Order</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Existing Purchase Orders</h2>
+    <table id="purchaseOrdersTable" border="1">
+      <thead>
+        <tr>
+          <th>Supplier</th>
+          <th>Order Date</th>
+          <th>Expected Delivery</th>
+          <th>Status</th>
+          <th>Total Amount</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <script src="js/app.js"></script>
+  <script>
+    let items = [];
+
+    function addItem() {
+      const itemDiv = document.createElement('div');
+      itemDiv.innerHTML = `
+        <label>Inventory Item ID: <input type="text" class="inventoryItemId" required></label>
+        <label>Quantity: <input type="number" class="quantity" min="1" required></label>
+        <label>Price: <input type="number" class="price" min="0" step="0.01" required></label>
+        <button type="button" onclick="removeItem(this)">Remove</button>
+      `;
+      document.getElementById('itemsContainer').appendChild(itemDiv);
+    }
+
+    function removeItem(button) {
+      button.parentElement.remove();
+    }
+
+    document.getElementById('purchaseOrderForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const supplier = document.getElementById('supplier').value;
+      const orderDate = document.getElementById('orderDate').value;
+      const expectedDeliveryDate = document.getElementById('expectedDeliveryDate').value;
+
+      const itemElements = document.querySelectorAll('#itemsContainer > div');
+      const items = [];
+      itemElements.forEach(div => {
+        const inventoryItemId = div.querySelector('.inventoryItemId').value;
+        const quantity = parseInt(div.querySelector('.quantity').value);
+        const price = parseFloat(div.querySelector('.price').value);
+        items.push({ inventoryItem: inventoryItemId, quantity, price });
+      });
+
+      const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+
+      const purchaseOrder = {
+        supplier,
+        orderDate,
+        expectedDeliveryDate,
+        items,
+        totalAmount
+      };
+
+      try {
+        const response = await fetch('/api/purchaseOrders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(purchaseOrder)
+        });
+        if (response.ok) {
+          alert('Purchase order created successfully');
+          loadPurchaseOrders();
+          document.getElementById('purchaseOrderForm').reset();
+          document.getElementById('itemsContainer').innerHTML = '';
+        } else {
+          alert('Failed to create purchase order');
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    });
+
+    async function loadPurchaseOrders() {
+      try {
+        const response = await fetch('/api/purchaseOrders');
+        const purchaseOrders = await response.json();
+        const tbody = document.querySelector('#purchaseOrdersTable tbody');
+        tbody.innerHTML = '';
+        purchaseOrders.forEach(po => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${po.supplier.name || po.supplier}</td>
+            <td>${new Date(po.orderDate).toLocaleDateString()}</td>
+            <td>${po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString() : ''}</td>
+            <td>${po.status}</td>
+            <td>${po.totalAmount.toFixed(2)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (error) {
+        console.error('Failed to load purchase orders:', error);
+      }
+    }
+
+    loadPurchaseOrders();
+  </script>
+</body>
+</html>

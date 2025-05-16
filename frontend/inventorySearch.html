@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Inventory Search - Pharmacy Management System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/background.css" />
+</head>
+<body>
+  <!-- Background Slideshow -->
+  <div class="background-slideshow">
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+  </div>
+
+  <!-- Navigation -->
+  <div id="nav-placeholder"></div>
+
+  <div class="content-overlay">
+    <div class="inventory-search-container">
+      <h1>Inventory Search</h1>
+
+      <div class="search-section">
+        <div class="search-bar">
+          <input type="text" id="searchInput" placeholder="Search by name, category, or code..." />
+          <button onclick="performSearch()">Search</button>
+        </div>
+
+        <div class="filters">
+          <select id="categoryFilter" onchange="filterResults()">
+            <option value="all">All Categories</option>
+            <option value="tablets">Tablets</option>
+            <option value="syrups">Syrups</option>
+            <option value="injections">Injections</option>
+            <option value="medical_supplies">Medical Supplies</option>
+          </select>
+
+          <select id="storeFilter" onchange="filterResults()">
+            <option value="all">All Stores</option>
+          </select>
+
+          <select id="stockFilter" onchange="filterResults()">
+            <option value="all">All Stock Levels</option>
+            <option value="in_stock">In Stock</option>
+            <option value="low_stock">Low Stock</option>
+            <option value="out_of_stock">Out of Stock</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="results-grid" id="resultsGrid">
+        <!-- Search results will be loaded here -->
+      </div>
+
+      <div class="pagination" id="pagination">
+        <!-- Pagination controls will be added here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div id="footer-placeholder"></div>
+
+  <script>
+    // Load navigation and footer
+    fetch('components/navigation.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('nav-placeholder').innerHTML = html;
+      });
+
+    fetch('components/footer.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('footer-placeholder').innerHTML = html;
+      });
+
+    // Get search query from URL if present
+    const urlParams = new URLSearchParams(window.location.search);
+    const searchQuery = urlParams.get('query');
+    if (searchQuery) {
+      document.getElementById('searchInput').value = searchQuery;
+      performSearch();
+    }
+
+    async function performSearch() {
+      const query = document.getElementById('searchInput').value;
+      const category = document.getElementById('categoryFilter').value;
+      const store = document.getElementById('storeFilter').value;
+      const stock = document.getElementById('stockFilter').value;
+
+      try {
+        const response = await fetch(`/api/inventory/search?query=${query}&category=${category}&store=${store}&stock=${stock}`);
+        const results = await response.json();
+        displayResults(results);
+      } catch (error) {
+        console.error('Error searching inventory:', error);
+      }
+    }
+
+    function displayResults(results) {
+      const grid = document.getElementById('resultsGrid');
+      grid.innerHTML = results.map(item => `
+        <div class="inventory-card ${getStockLevelClass(item.quantity)}">
+          <h3>${item.name}</h3>
+          <p><strong>Category:</strong> ${item.category}</p>
+          <p><strong>Code:</strong> ${item.code}</p>
+          <p><strong>Stock:</strong> ${item.quantity}</p>
+          <p><strong>Store:</strong> ${item.store.name}</p>
+          <p><strong>Price:</strong> $${item.price.toFixed(2)}</p>
+          <div class="card-actions">
+            <button onclick="viewDetails('${item._id}')">View Details</button>
+            <button onclick="updateStock('${item._id}')">Update Stock</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function getStockLevelClass(quantity) {
+      if (quantity === 0) return 'out-of-stock';
+      if (quantity <= 10) return 'low-stock';
+      return 'in-stock';
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadStores();
+      if (!searchQuery) {
+        performSearch(); // Load all items if no search query
+      }
+    });
+  </script>
+
+  <style>
+    .inventory-search-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .search-section {
+      margin-bottom: 20px;
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .search-bar input {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .filters {
+      display: flex;
+      gap: 10px;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .inventory-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .inventory-card.out-of-stock {
+      border-left: 4px solid #dc3545;
+    }
+
+    .inventory-card.low-stock {
+      border-left: 4px solid #ffc107;
+    }
+
+    .inventory-card.in-stock {
+      border-left: 4px solid #28a745;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .inventory-card {
+        background-color: #333;
+        color: white;
+      }
+
+      input, select {
+        background-color: #444;
+        color: white;
+        border: 1px solid #555;
+      }
+    }
+  </style>
+</body>
+</html>

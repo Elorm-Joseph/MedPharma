@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Supplier Performance - Pharmacy Management System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/background.css" />
+</head>
+<body>
+  <!-- Background Slideshow -->
+  <div class="background-slideshow">
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+  </div>
+
+  <!-- Navigation -->
+  <div id="nav-placeholder"></div>
+
+  <div class="content-overlay">
+    <div class="supplier-performance-container">
+      <h1>Supplier Performance</h1>
+
+      <div class="filters">
+        <select id="supplierFilter" onchange="filterPerformance()">
+          <option value="all">All Suppliers</option>
+        </select>
+
+        <div class="date-range">
+          <input type="date" id="startDate" onchange="filterPerformance()" />
+          <input type="date" id="endDate" onchange="filterPerformance()" />
+        </div>
+      </div>
+
+      <div class="performance-grid" id="performanceGrid">
+        <!-- Supplier performance data will be loaded here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div id="footer-placeholder"></div>
+
+  <script>
+    // Load navigation and footer
+    fetch('components/navigation.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('nav-placeholder').innerHTML = html;
+      });
+
+    fetch('components/footer.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('footer-placeholder').innerHTML = html;
+      });
+
+    async function loadSupplierPerformance() {
+      try {
+        const response = await fetch('/api/supplier-performance');
+        const data = await response.json();
+        displayPerformance(data);
+      } catch (error) {
+        console.error('Error loading supplier performance:', error);
+      }
+    }
+
+    function displayPerformance(data) {
+      const grid = document.getElementById('performanceGrid');
+      grid.innerHTML = data.map(item => `
+        <div class="performance-card">
+          <h3>${item.supplier.name}</h3>
+          <p><strong>On-time Delivery:</strong> ${item.onTimeDelivery}%</p>
+          <p><strong>Order Accuracy:</strong> ${item.orderAccuracy}%</p>
+          <p><strong>Quality Rating:</strong> ${item.qualityRating}/5</p>
+          <p><strong>Comments:</strong> ${item.comments}</p>
+        </div>
+      `).join('');
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', loadSupplierPerformance);
+  </script>
+
+  <style>
+    .supplier-performance-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .filters {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .performance-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .performance-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .performance-card {
+        background-color: #333;
+        color: white;
+      }
+    }
+  </style>
+</body>
+</html>

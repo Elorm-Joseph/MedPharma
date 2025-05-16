@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Logout - Pharmacy Management System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="auth-container">
+    <h1>Logout</h1>
+    <p>You have been logged out successfully.</p>
+    <button id="logoutBtn">Login Again</button>
+  </div>
+
+  <script>
+    // Clear localStorage and redirect to login page
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
+    });
+
+    // Automatically clear and redirect after 3 seconds
+    setTimeout(() => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
+    }, 3000);
+  </script>
+
+  <style>
+    .auth-container {
+      max-width: 400px;
+      margin: 50px auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: white;
+      text-align: center;
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</body>
+</html>

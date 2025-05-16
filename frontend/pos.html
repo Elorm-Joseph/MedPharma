@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Point of Sale - Pharmacy Management System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/background.css" />
+</head>
+<body>
+  <div class="background-slideshow">
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+  </div>
+
+  <div id="nav-placeholder"></div>
+
+  <div class="content-overlay">
+    <div class="pos-container">
+      <div class="pos-header">
+        <h1>Point of Sale</h1>
+        <div class="register-info">
+          <span>Register: <span id="registerNumber">Loading...</span></span>
+          <span>Operator: <span id="operatorName">Loading...</span></span>
+        </div>
+      </div>
+
+      <div class="pos-main">
+        <!-- Left Side - Product Search and Grid -->
+        <div class="pos-left">
+          <div class="search-section">
+            <div class="search-bar">
+              <input type="text" id="productSearch" placeholder="Search products..." />
+              <button onclick="searchProducts()">Search</button>
+            </div>
+            <div class="category-filters">
+              <select id="categoryFilter" onchange="filterProducts()">
+                <option value="">All Categories</option>
+                <option value="tablets">Tablets</option>
+                <option value="syrups">Syrups</option>
+                <option value="injections">Injections</option>
+                <option value="medical_supplies">Medical Supplies</option>
+              </select>
+            </div>
+          </div>
+          <div class="product-grid" id="productGrid"></div>
+        </div>
+
+        <!-- Right Side - Cart -->
+        <div class="pos-right">
+          <div class="cart-section">
+            <div class="cart-header">
+              <h2>Current Sale</h2>
+              <button onclick="clearCart()" class="clear-btn">Clear Cart</button>
+            </div>
+
+            <div class="cart-items" id="cartItems">
+              <!-- Cart items will be added here -->
+            </div>
+
+            <div class="cart-summary">
+              <div class="summary-row">
+                <span>Subtotal:</span>
+                <span id="subtotal">$0.00</span>
+              </div>
+              <div class="summary-row">
+                <span>Tax (12%):</span>
+                <span id="tax">$0.00</span>
+              </div>
+              <div class="summary-row">
+                <span>Discount:</span>
+                <div class="discount-input">
+                  <input type="number" id="discountAmount" value="0" min="0" onchange="updateTotals()" />
+                  <select id="discountType" onchange="updateTotals()">
+                    <option value="amount">$</option>
+                    <option value="percentage">%</option>
+                  </select>
+                </div>
+              </div>
+              <div class="summary-row total">
+                <span>Total:</span>
+                <span id="total">$0.00</span>
+              </div>
+            </div>
+
+            <div class="payment-section">
+              <div class="payment-type">
+                <select id="paymentMethod" onchange="togglePaymentFields()">
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="mobile_money">Mobile Money</option>
+                  <option value="insurance">Insurance</option>
+                </select>
+              </div>
+
+              <div id="cashPayment" class="payment-fields">
+                <div class="form-group">
+                  <label>Amount Tendered:</label>
+                  <input type="number" id="amountTendered" onchange="calculateChange()" />
+                </div>
+                <div class="form-group">
+                  <label>Change:</label>
+                  <span id="changeAmount">$0.00</span>
+                </div>
+              </div>
+
+              <div id="cardPayment" class="payment-fields" style="display: none;">
+                <div class="form-group">
+                  <label>Card Number:</label>
+                  <input type="text" id="cardNumber" placeholder="**** **** **** ****" />
+                </div>
+                <div class="form-group">
+                  <label>Expiry:</label>
+                  <input type="text" id="cardExpiry" placeholder="MM/YY" />
+                </div>
+              </div>
+
+              <div id="mobileMoneyPayment" class="payment-fields" style="display: none;">
+                <div class="form-group">
+                  <label>Phone Number:</label>
+                  <input type="text" id="phoneNumber" />
+                </div>
+                <div class="form-group">
+                  <label>Transaction ID:</label>
+                  <input type="text" id="transactionId" />
+                </div>
+              </div>
+
+              <div id="insurancePayment" class="payment-fields" style="display: none;">
+                <div class="form-group">
+                  <label>Insurance Provider:</label>
+                  <select id="insuranceProvider">
+                    <option value="">Select Provider</option>
+                    <option value="provider1">Provider 1</option>
+                    <option value="provider2">Provider 2</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Policy Number:</label>
+                  <input type="text" id="policyNumber" />
+                </div>
+              </div>
+
+              <button onclick="processSale()" class="process-sale-btn">Process Sale</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer-placeholder"></div>
+
+  <script>
+    // Load navigation and footer
+    fetch('components/navigation.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('nav-placeholder').innerHTML = html;
+      });
+
+    fetch('components/footer.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('footer-placeholder').innerHTML = html;
+      });
+
+    let cart = [];
+    let currentRegister = null;
+
+    // Initialize POS
+    async function initializePOS() {
+      try {
+        const user = JSON.parse(localStorage.getItem('user'));
+        document.getElementById('operatorName').textContent = `${user.firstName} ${user.lastName}`;
+
+        // Get active register
+        const response = await fetch(`/api/registers/active?storeId=${user.storeId}`);
+        const register = await response.json();
+        currentRegister = register;
+        document.getElementById('registerNumber').textContent = register.registerNumber;
+
+        loadProducts();
+      } catch (error) {
+        console.error('Error initializing POS:', error);
+        alert('Failed to initialize POS system');
+      }
+    }
+
+    // Load products
+    async function loadProducts() {
+      try {
+        const response = await fetch('/api/inventory');
+        const products = await response.json();
+        displayProducts(products);
+      } catch (error) {
+        console.error('Error loading products:', error);
+      }
+    }
+
+    function displayProducts(products) {
+      const grid = document.getElementById('productGrid');
+      grid.innerHTML = products.map(product => `
+        <div class="product-card" onclick="addToCart(${JSON.stringify(product)})">
+          <h3>${product.name}</h3>
+          <p>${product.description}</p>
+          <p class="price">$${product.price.toFixed(2)}</p>
+          <p class="stock">In Stock: ${product.quantity}</p>
+        </div>
+      `).join('');
+    }
+
+    function addToCart(product) {
+      const existingItem = cart.find(item => item.product._id === product._id);
+      
+      if (existingItem) {
+        existingItem.quantity++;
+      } else {
+        cart.push({
+          product,
+          quantity: 1,
+          unitPrice: product.price,
+          discount: 0
+        });
+      }
+
+      updateCartDisplay();
+      updateTotals();
+    }
+
+    function updateCartDisplay() {
+      const cartItems = document.getElementById('cartItems');
+      cartItems.innerHTML = cart.map((item, index) => `
+        <div class="cart-item">
+          <div class="item-details">
+            <span class="item-name">${item.product.name}</span>
+            <div class="item-controls">
+              <input type="number" value="${item.quantity}" min="1" 
+                onchange="updateQuantity(${index}, this.value)" />
+              <span class="item-price">$${(item.unitPrice * item.quantity).toFixed(2)}</span>
+              <button onclick="removeItem(${index})" class="remove-btn">×</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateQuantity(index, value) {
+      const qty = parseInt(value);
+      if (qty > 0) {
+        cart[index].quantity = qty;
+        updateCartDisplay();
+        updateTotals();
+      }
+    }
+
+    function removeItem(index) {
+      cart.splice(index, 1);
+      updateCartDisplay();
+      updateTotals();
+    }
+
+    function clearCart() {
+      cart = [];
+      updateCartDisplay();
+      updateTotals();
+    }
+
+    function updateTotals() {
+      const subtotal = cart.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+      const discountType = document.getElementById('discountType').value;
+      const discountValue = parseFloat(document.getElementById('discountAmount').value) || 0;
+      
+      let discount = discountType === 'percentage' ? 
+        (subtotal * (discountValue / 100)) : discountValue;
+      
+      const tax = (subtotal - discount) * 0.12;
+      const total = subtotal + tax - discount;
+
+      document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+      document.getElementById('tax').textContent = `$${tax.toFixed(2)}`;
+      document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+
+      calculateChange();
+    }
+
+    function calculateChange() {
+      const total = parseFloat(document.getElementById('total').textContent.slice(1));
+      const tendered = parseFloat(document.getElementById('amountTendered').value) || 0;
+      document.getElementById('changeAmount').textContent = `$${Math.max(0, tendered - total).toFixed(2)}`;
+    }
+
+    function togglePaymentFields() {
+      const method = document.getElementById('paymentMethod').value;
+      document.getElementById('cashPayment').style.display = method === 'cash' ? 'block' : 'none';
+      document.getElementById('cardPayment').style.display = method === 'card' ? 'block' : 'none';
+      document.getElementById('mobileMoneyPayment').style.display = method === 'mobile_money' ? 'block' : 'none';
+      document.getElementById('insurancePayment').style.display = method === 'insurance' ? 'block' : 'none';
+    }
+
+    async function processSale() {
+      if (cart.length === 0) {
+        alert('Cart is empty');
+        return;
+      }
+
+      try {
+        const sale = {
+          store: currentRegister.store,
+          cashier: JSON.parse(localStorage.getItem('user'))._id,
+          items: cart.map(item => ({
+            product: item.product._id,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discount: item.discount
+          })),
+          paymentMethod: document.getElementById('paymentMethod').value,
+          registerId: currentRegister._id
+        };
+
+        const response = await fetch('/api/sales', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sale)
+        });
+
+        if (response.ok) {
+          alert('Sale completed successfully');
+          clearCart();
+          document.getElementById('amountTendered').value = '';
+        } else {
+          const error = await response.json();
+          throw new Error(error.message);
+        }
+      } catch (error) {
+        console.error('Error processing sale:', error);
+        alert('Failed to process sale');
+      }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', initializePOS);
+  </script>
+
+  <style>
+    .pos-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .pos-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .pos-main {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+    }
+
+    .search-section {
+      margin-bottom: 20px;
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .search-bar input {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .category-filters select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .product-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .product-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .cart-section {
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+    }
+
+    .cart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .cart-items {
+      max-height: 400px;
+      overflow-y: auto;
+      margin-bottom: 15px;
+    }
+
+    .cart-item {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .item-details {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .item-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .item-controls input {
+      width: 60px;
+      padding: 4px;
+    }
+
+    .remove-btn {
+      background: none;
+      border: none;
+      color: red;
+      cursor: pointer;
+      font-size: 1.2em;
+    }
+
+    .cart-summary {
+      margin: 15px 0;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 4px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .total {
+      font-weight: bold;
+      font-size: 1.2em;
+    }
+
+    .payment-section {
+      margin-top: 20px;
+    }
+
+    .payment-type {
+      margin-bottom: 15px;
+    }
+
+    .payment-type select {
+      width: 100%;
+      padding: 8px;
+    }
+
+    .payment-fields {
+      margin-bottom: 15px;
+    }
+
+    .form-group {
+      margin-bottom: 10px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .process-sale-btn {
+      width: 100%;
+      padding: 15px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .process-sale-btn:hover {
+      background-color: #218838;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .product-card, .cart-section {
+        background-color: #333;
+        color: white;
+      }
+
+      .cart-summary {
+        background-color: #444;
+      }
+
+      input, select {
+        background-color: #444;
+        color: white;
+        border-color: #555;
+      }
+    }
+  </style>
+</body>
+</html>

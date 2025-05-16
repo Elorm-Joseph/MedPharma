@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Store Management - Pharmacy Management System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/background.css" />
+</head>
+<body>
+  <!-- Background Slideshow -->
+  <div class="background-slideshow">
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+  </div>
+
+  <!-- Navigation -->
+  <div id="nav-placeholder"></div>
+
+  <div class="content-overlay">
+    <div class="stores-container">
+      <h1>Store Management</h1>
+
+      <div class="store-actions">
+        <button onclick="openAddStoreModal()">Add New Store</button>
+        <button onclick="openTransferModal()">Transfer Stock</button>
+      </div>
+
+      <div class="stores-grid" id="storesGrid">
+        <!-- Stores will be loaded here -->
+      </div>
+
+      <!-- Add Store Modal -->
+      <div id="addStoreModal" class="modal">
+        <div class="modal-content">
+          <h2>Add New Store</h2>
+          <form id="addStoreForm">
+            <div class="form-group">
+              <label for="storeName">Store Name:</label>
+              <input type="text" id="storeName" required />
+            </div>
+            <div class="form-group">
+              <label for="location">Location:</label>
+              <input type="text" id="location" required />
+            </div>
+            <div class="form-group">
+              <label for="manager">Manager:</label>
+              <select id="manager" required></select>
+            </div>
+            <div class="form-group">
+              <label for="phone">Phone:</label>
+              <input type="tel" id="phone" required />
+            </div>
+            <div class="form-group">
+              <label for="email">Email:</label>
+              <input type="email" id="email" required />
+            </div>
+            <button type="submit">Add Store</button>
+            <button type="button" onclick="closeModal('addStoreModal')">Cancel</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Transfer Stock Modal -->
+      <div id="transferModal" class="modal">
+        <div class="modal-content">
+          <h2>Transfer Stock</h2>
+          <form id="transferForm">
+            <div class="form-group">
+              <label for="fromStore">From Store:</label>
+              <select id="fromStore" required></select>
+            </div>
+            <div class="form-group">
+              <label for="toStore">To Store:</label>
+              <select id="toStore" required></select>
+            </div>
+            <div class="form-group">
+              <label for="product">Product:</label>
+              <select id="product" required></select>
+            </div>
+            <div class="form-group">
+              <label for="quantity">Quantity:</label>
+              <input type="number" id="quantity" required min="1" />
+            </div>
+            <div class="form-group">
+              <label for="notes">Notes:</label>
+              <textarea id="notes"></textarea>
+            </div>
+            <button type="submit">Transfer Stock</button>
+            <button type="button" onclick="closeModal('transferModal')">Cancel</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div id="footer-placeholder"></div>
+
+  <script>
+    // Load navigation and footer
+    fetch('components/navigation.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('nav-placeholder').innerHTML = html;
+      });
+
+    fetch('components/footer.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('footer-placeholder').innerHTML = html;
+      });
+
+    // Load stores
+    async function loadStores() {
+      try {
+        const response = await fetch('/api/stores');
+        const stores = await response.json();
+        
+        const grid = document.getElementById('storesGrid');
+        grid.innerHTML = stores.map(store => `
+          <div class="store-card">
+            <h3>${store.name}</h3>
+            <p><strong>Location:</strong> ${store.location}</p>
+            <p><strong>Manager:</strong> ${store.manager.firstName} ${store.manager.lastName}</p>
+            <p><strong>Phone:</strong> ${store.phone}</p>
+            <p><strong>Email:</strong> ${store.email}</p>
+            <div class="store-actions">
+              <button onclick="viewInventory('${store._id}')">View Inventory</button>
+              <button onclick="editStore('${store._id}')">Edit</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (error) {
+        console.error('Error loading stores:', error);
+      }
+    }
+
+    // Load managers for store creation
+    async function loadManagers() {
+      try {
+        const response = await fetch('/api/users?role=manager');
+        const managers = await response.json();
+        
+        const select = document.getElementById('manager');
+        select.innerHTML = managers.map(manager => `
+          <option value="${manager._id}">${manager.firstName} ${manager.lastName}</option>
+        `).join('');
+      } catch (error) {
+        console.error('Error loading managers:', error);
+      }
+    }
+
+    // Modal functions
+    function openAddStoreModal() {
+      loadManagers();
+      document.getElementById('addStoreModal').style.display = 'block';
+    }
+
+    function openTransferModal() {
+      loadStores();
+      loadProducts();
+      document.getElementById('transferModal').style.display = 'block';
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+
+    // Form submissions
+    document.getElementById('addStoreForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const response = await fetch('/api/stores', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: document.getElementById('storeName').value,
+            location: document.getElementById('location').value,
+            manager: document.getElementById('manager').value,
+            phone: document.getElementById('phone').value,
+            email: document.getElementById('email').value
+          })
+        });
+
+        if (response.ok) {
+          closeModal('addStoreModal');
+          loadStores();
+        } else {
+          const error = await response.json();
+          throw new Error(error.message);
+        }
+      } catch (error) {
+        alert('Error creating store: ' + error.message);
+      }
+    });
+
+    document.getElementById('transferForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const response = await fetch('/api/stores/transfer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fromStore: document.getElementById('fromStore').value,
+            toStore: document.getElementById('toStore').value,
+            product: document.getElementById('product').value,
+            quantity: parseInt(document.getElementById('quantity').value),
+            notes: document.getElementById('notes').value
+          })
+        });
+
+        if (response.ok) {
+          closeModal('transferModal');
+          loadStores();
+        } else {
+          const error = await response.json();
+          throw new Error(error.message);
+        }
+      } catch (error) {
+        alert('Error transferring stock: ' + error.message);
+      }
+    });
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', loadStores);
+  </script>
+
+  <style>
+    .stores-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .store-actions {
+      margin-bottom: 20px;
+    }
+
+    .stores-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .store-card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .store-card h3 {
+      margin-top: 0;
+      margin-bottom: 15px;
+    }
+
+    .store-card p {
+      margin: 5px 0;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background-color: white;
+      margin: 10% auto;
+      padding: 20px;
+      width: 80%;
+      max-width: 500px;
+      border-radius: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 8px 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .store-card, .modal-content {
+        background-color: #333;
+        color: white;
+      }
+
+      .form-group input,
+      .form-group select,
+      .form-group textarea {
+        background-color: #444;
+        color: white;
+        border-color: #555;
+      }
+    }
+  </style>
+</body>
+</html>

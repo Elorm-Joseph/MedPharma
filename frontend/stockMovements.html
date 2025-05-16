@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stock Movements - Pharmacy Management System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/background.css" />
+</head>
+<body>
+  <!-- Background Slideshow -->
+  <div class="background-slideshow">
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+  </div>
+
+  <!-- Navigation -->
+  <div id="nav-placeholder"></div>
+
+  <div class="content-overlay">
+    <div class="stock-movements-container">
+      <h1>Stock Movements</h1>
+
+      <div class="filters">
+        <select id="movementTypeFilter" onchange="filterStockMovements()">
+          <option value="all">All Types</option>
+          <option value="inbound">Inbound</option>
+          <option value="outbound">Outbound</option>
+          <option value="transfer">Transfer</option>
+        </select>
+
+        <select id="storeFilter" onchange="filterStockMovements()">
+          <option value="all">All Stores</option>
+        </select>
+
+        <div class="date-range">
+          <input type="date" id="startDate" onchange="filterStockMovements()" />
+          <input type="date" id="endDate" onchange="filterStockMovements()" />
+        </div>
+      </div>
+
+      <div class="stock-movements-grid" id="stockMovementsGrid">
+        <!-- Stock movements will be loaded here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div id="footer-placeholder"></div>
+
+  <script>
+    // Load navigation and footer
+    fetch('components/navigation.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('nav-placeholder').innerHTML = html;
+      });
+
+    fetch('components/footer.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('footer-placeholder').innerHTML = html;
+      });
+
+    async function loadStockMovements() {
+      try {
+        const response = await fetch('/api/stock-movements');
+        const movements = await response.json();
+        displayStockMovements(movements);
+      } catch (error) {
+        console.error('Error loading stock movements:', error);
+      }
+    }
+
+    function displayStockMovements(movements) {
+      const grid = document.getElementById('stockMovementsGrid');
+      grid.innerHTML = movements.map(movement => `
+        <div class="movement-card">
+          <h3>${movement.type}</h3>
+          <p><strong>Product:</strong> ${movement.product.name}</p>
+          <p><strong>Quantity:</strong> ${movement.quantity}</p>
+          <p><strong>Store:</strong> ${movement.store.name}</p>
+          <p><strong>Date:</strong> ${new Date(movement.date).toLocaleDateString()}</p>
+        </div>
+      `).join('');
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', loadStockMovements);
+  </script>
+
+  <style>
+    .stock-movements-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .filters {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .stock-movements-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .movement-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .movement-card {
+        background-color: #333;
+        color: white;
+      }
+    }
+  </style>
+</body>
+</html>

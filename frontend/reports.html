@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reports - Pharmacy Management System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/background.css" />
+</head>
+<body>
+  <!-- Background Slideshow -->
+  <div class="background-slideshow">
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+  </div>
+
+  <!-- Navigation -->
+  <div id="nav-placeholder"></div>
+
+  <div class="content-overlay">
+    <div class="reports-container">
+      <h1>Reports</h1>
+      
+      <div class="report-filters">
+        <div class="date-range">
+          <label for="startDate">Start Date:</label>
+          <input type="date" id="startDate" />
+          
+          <label for="endDate">End Date:</label>
+          <input type="date" id="endDate" />
+        </div>
+        
+        <div class="report-type">
+          <label for="reportType">Report Type:</label>
+          <select id="reportType">
+            <option value="sales">Sales Report</option>
+            <option value="inventory">Inventory Report</option>
+            <option value="expiry">Expiry Report</option>
+            <option value="stockLevel">Stock Level Report</option>
+            <option value="cashFlow">Cash Flow Report</option>
+            <option value="prescription">Prescription Report</option>
+          </select>
+        </div>
+        
+        <button onclick="generateReport()">Generate Report</button>
+      </div>
+
+      <div class="report-content" id="reportContent">
+        <!-- Report will be loaded here -->
+      </div>
+
+      <div class="report-actions">
+        <button onclick="exportToPDF()">Export to PDF</button>
+        <button onclick="exportToExcel()">Export to Excel</button>
+        <button onclick="printReport()">Print Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div id="footer-placeholder"></div>
+
+  <script>
+    // Load navigation and footer
+    fetch('components/navigation.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('nav-placeholder').innerHTML = html;
+      });
+
+    fetch('components/footer.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('footer-placeholder').innerHTML = html;
+      });
+
+    async function generateReport() {
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      const reportType = document.getElementById('reportType').value;
+
+      if (!startDate || !endDate) {
+        alert('Please select both start and end dates');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startDate, endDate, reportType })
+        });
+
+        if (!response.ok) throw new Error('Failed to generate report');
+        
+        const data = await response.json();
+        displayReport(data);
+      } catch (error) {
+        console.error('Error generating report:', error);
+        alert('Failed to generate report');
+      }
+    }
+
+    function displayReport(data) {
+      const reportContent = document.getElementById('reportContent');
+      const reportType = document.getElementById('reportType').value;
+
+      let html = '';
+      switch (reportType) {
+        case 'sales':
+          html = generateSalesReport(data);
+          break;
+        case 'inventory':
+          html = generateInventoryReport(data);
+          break;
+        case 'expiry':
+          html = generateExpiryReport(data);
+          break;
+        case 'stockLevel':
+          html = generateStockLevelReport(data);
+          break;
+        case 'cashFlow':
+          html = generateCashFlowReport(data);
+          break;
+        case 'prescription':
+          html = generatePrescriptionReport(data);
+          break;
+      }
+
+      reportContent.innerHTML = html;
+    }
+
+    function generateSalesReport(data) {
+      return `
+        <h2>Sales Report</h2>
+        <div class="report-summary">
+          <div class="summary-card">
+            <h3>Total Sales</h3>
+            <p>$${data.totalSales.toFixed(2)}</p>
+          </div>
+          <div class="summary-card">
+            <h3>Total Transactions</h3>
+            <p>${data.totalTransactions}</p>
+          </div>
+          <div class="summary-card">
+            <h3>Average Sale</h3>
+            <p>$${data.averageSale.toFixed(2)}</p>
+          </div>
+        </div>
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Transaction ID</th>
+              <th>Items</th>
+              <th>Total</th>
+              <th>Payment Method</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.transactions.map(t => `
+              <tr>
+                <td>${new Date(t.date).toLocaleDateString()}</td>
+                <td>${t.id}</td>
+                <td>${t.itemCount}</td>
+                <td>$${t.total.toFixed(2)}</td>
+                <td>${t.paymentMethod}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    // Export functions
+    function exportToPDF() {
+      // Implementation for PDF export
+      alert('Exporting to PDF...');
+    }
+
+    function exportToExcel() {
+      // Implementation for Excel export
+      alert('Exporting to Excel...');
+    }
+
+    function printReport() {
+      window.print();
+    }
+  </script>
+
+  <style>
+    .reports-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .report-filters {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .date-range {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 15px;
+    }
+
+    .report-type {
+      margin-bottom: 15px;
+    }
+
+    .report-content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .report-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .summary-card {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    .report-table th,
+    .report-table td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+
+    .report-table th {
+      background: #f8f9fa;
+    }
+
+    .report-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .report-actions button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      background: #007bff;
+      color: white;
+    }
+
+    .report-actions button:hover {
+      background: #0056b3;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .report-filters,
+      .report-content {
+        background-color: #333;
+        color: white;
+      }
+
+      .summary-card {
+        background-color: #444;
+      }
+
+      .report-table th {
+        background-color: #444;
+      }
+
+      .report-table td,
+      .report-table th {
+        border-color: #555;
+      }
+
+      input,
+      select {
+        background-color: #444;
+        color: white;
+        border: 1px solid #555;
+      }
+    }
+
+    @media print {
+      .report-filters,
+      .report-actions,
+      #nav-placeholder,
+      #footer-placeholder {
+        display: none;
+      }
+
+      .report-content {
+        box-shadow: none;
+      }
+    }
+  </style>
+</body>
+</html>

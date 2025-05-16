@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Register Management - Pharmacy Management System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/background.css" />
+</head>
+<body>
+  <div class="background-slideshow">
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+  </div>
+
+  <div id="nav-placeholder"></div>
+
+  <div class="content-overlay">
+    <div class="registers-container">
+      <h1>Register Management</h1>
+
+      <div class="register-actions">
+        <button onclick="openRegisterModal()">Open New Register</button>
+        <button onclick="viewRegisterHistory()">View History</button>
+      </div>
+
+      <div class="active-registers">
+        <h2>Active Registers</h2>
+        <div id="activeRegisters" class="registers-grid"></div>
+      </div>
+
+      <!-- Open Register Modal -->
+      <div id="openRegisterModal" class="modal">
+        <div class="modal-content">
+          <h2>Open New Register</h2>
+          <form id="openRegisterForm">
+            <div class="form-group">
+              <label for="openingBalance">Opening Balance:</label>
+              <input type="number" id="openingBalance" required min="0" step="0.01" />
+            </div>
+            <div class="form-group">
+              <label for="notes">Notes:</label>
+              <textarea id="notes"></textarea>
+            </div>
+            <button type="submit">Open Register</button>
+            <button type="button" onclick="closeModal('openRegisterModal')">Cancel</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Close Register Modal -->
+      <div id="closeRegisterModal" class="modal">
+        <div class="modal-content">
+          <h2>Close Register</h2>
+          <form id="closeRegisterForm">
+            <div class="cash-count">
+              <h3>Cash Count</h3>
+              <div class="notes-section">
+                <h4>Notes</h4>
+                <div class="denomination-inputs">
+                  <div class="form-group">
+                    <label>$100 x</label>
+                    <input type="number" id="note100" value="0" min="0" onchange="updateCashCount()" />
+                  </div>
+                  <div class="form-group">
+                    <label>$50 x</label>
+                    <input type="number" id="note50" value="0" min="0" onchange="updateCashCount()" />
+                  </div>
+                  <div class="form-group">
+                    <label>$20 x</label>
+                    <input type="number" id="note20" value="0" min="0" onchange="updateCashCount()" />
+                  </div>
+                  <div class="form-group">
+                    <label>$10 x</label>
+                    <input type="number" id="note10" value="0" min="0" onchange="updateCashCount()" />
+                  </div>
+                  <div class="form-group">
+                    <label>$5 x</label>
+                    <input type="number" id="note5" value="0" min="0" onchange="updateCashCount()" />
+                  </div>
+                  <div class="form-group">
+                    <label>$1 x</label>
+                    <input type="number" id="note1" value="0" min="0" onchange="updateCashCount()" />
+                  </div>
+                </div>
+              </div>
+              <div class="coins-section">
+                <h4>Coins</h4>
+                <div class="denomination-inputs">
+                  <div class="form-group">
+                    <label>$1.00 x</label>
+                    <input type="number" id="coin100" value="0" min="0" onchange="updateCashCount()" />
+                  </div>
+                  <div class="form-group">
+                    <label>$0.25 x</label>
+                    <input type="number" id="coin25" value="0" min="0" onchange="updateCashCount()" />
+                  </div>
+                  <div class="form-group">
+                    <label>$0.10 x</label>
+                    <input type="number" id="coin10" value="0" min="0" onchange="updateCashCount()" />
+                  </div>
+                  <div class="form-group">
+                    <label>$0.05 x</label>
+                    <input type="number" id="coin5" value="0" min="0" onchange="updateCashCount()" />
+                  </div>
+                  <div class="form-group">
+                    <label>$0.01 x</label>
+                    <input type="number" id="coin1" value="0" min="0" onchange="updateCashCount()" />
+                  </div>
+                </div>
+              </div>
+              <div class="total-section">
+                <h4>Total Cash Count: <span id="totalCashCount">$0.00</span></h4>
+                <p>Expected Balance: <span id="expectedBalance">$0.00</span></p>
+                <p>Discrepancy: <span id="discrepancy">$0.00</span></p>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="closeNotes">Closing Notes:</label>
+              <textarea id="closeNotes"></textarea>
+            </div>
+            <button type="submit">Close Register</button>
+            <button type="button" onclick="closeModal('closeRegisterModal')">Cancel</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer-placeholder"></div>
+
+  <script>
+    // Load navigation and footer
+    fetch('components/navigation.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('nav-placeholder').innerHTML = html;
+      });
+
+    fetch('components/footer.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('footer-placeholder').innerHTML = html;
+      });
+
+    let currentRegisterId = null;
+
+    async function loadActiveRegisters() {
+      try {
+        const user = JSON.parse(localStorage.getItem('user'));
+        const response = await fetch(`/api/registers/active?storeId=${user.storeId}`);
+        const registers = await response.json();
+        
+        const grid = document.getElementById('activeRegisters');
+        grid.innerHTML = registers.map(register => `
+          <div class="register-card">
+            <h3>${register.registerNumber}</h3>
+            <p>Operator: ${register.currentOperator.firstName} ${register.currentOperator.lastName}</p>
+            <p>Current Balance: $${register.currentBalance.toFixed(2)}</p>
+            <p>Opened: ${new Date(register.createdAt).toLocaleString()}</p>
+            <button onclick="closeRegisterDialog('${register._id}', ${register.currentBalance})">Close Register</button>
+          </div>
+        `).join('');
+      } catch (error) {
+        console.error('Error loading registers:', error);
+      }
+    }
+
+    function openRegisterModal() {
+      document.getElementById('openRegisterModal').style.display = 'block';
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+
+    function closeRegisterDialog(registerId, expectedBalance) {
+      currentRegisterId = registerId;
+      document.getElementById('expectedBalance').textContent = `$${expectedBalance.toFixed(2)}`;
+      document.getElementById('closeRegisterModal').style.display = 'block';
+    }
+
+    function updateCashCount() {
+      const notes = {
+        100: parseFloat(document.getElementById('note100').value) || 0,
+        50: parseFloat(document.getElementById('note50').value) || 0,
+        20: parseFloat(document.getElementById('note20').value) || 0,
+        10: parseFloat(document.getElementById('note10').value) || 0,
+        5: parseFloat(document.getElementById('note5').value) || 0,
+        1: parseFloat(document.getElementById('note1').value) || 0
+      };
+
+      const coins = {
+        100: parseFloat(document.getElementById('coin100').value) || 0,
+        25: parseFloat(document.getElementById('coin25').value) || 0,
+        10: parseFloat(document.getElementById('coin10').value) || 0,
+        5: parseFloat(document.getElementById('coin5').value) || 0,
+        1: parseFloat(document.getElementById('coin1').value) || 0
+      };
+
+      const totalNotes = Object.entries(notes).reduce((sum, [denom, count]) => 
+        sum + (denom * count), 0);
+      const totalCoins = Object.entries(coins).reduce((sum, [denom, count]) => 
+        sum + (denom * count / 100), 0);
+
+      const total = totalNotes + totalCoins;
+      document.getElementById('totalCashCount').textContent = `$${total.toFixed(2)}`;
+
+      const expected = parseFloat(document.getElementById('expectedBalance').textContent.slice(1));
+      const discrepancy = total - expected;
+      document.getElementById('discrepancy').textContent = `$${discrepancy.toFixed(2)}`;
+      document.getElementById('discrepancy').style.color = discrepancy === 0 ? 'black' : 'red';
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', loadActiveRegisters);
+
+    // Form submissions
+    document.getElementById('openRegisterForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const user = JSON.parse(localStorage.getItem('user'));
+        const response = await fetch('/api/registers/open', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            storeId: user.storeId,
+            userId: user._id,
+            openingBalance: parseFloat(document.getElementById('openingBalance').value),
+            notes: document.getElementById('notes').value
+          })
+        });
+
+        if (response.ok) {
+          closeModal('openRegisterModal');
+          loadActiveRegisters();
+        } else {
+          const error = await response.json();
+          throw new Error(error.message);
+        }
+      } catch (error) {
+        alert('Error opening register: ' + error.message);
+      }
+    });
+
+    document.getElementById('closeRegisterForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const user = JSON.parse(localStorage.getItem('user'));
+        const cashCount = {
+          notes: [
+            { denomination: 100, count: parseInt(document.getElementById('note100').value) || 0 },
+            { denomination: 50, count: parseInt(document.getElementById('note50').value) || 0 },
+            { denomination: 20, count: parseInt(document.getElementById('note20').value) || 0 },
+            { denomination: 10, count: parseInt(document.getElementById('note10').value) || 0 },
+            { denomination: 5, count: parseInt(document.getElementById('note5').value) || 0 },
+            { denomination: 1, count: parseInt(document.getElementById('note1').value) || 0 }
+          ],
+          coins: [
+            { denomination: 100, count: parseInt(document.getElementById('coin100').value) || 0 },
+            { denomination: 25, count: parseInt(document.getElementById('coin25').value) || 0 },
+            { denomination: 10, count: parseInt(document.getElementById('coin10').value) || 0 },
+            { denomination: 5, count: parseInt(document.getElementById('coin5').value) || 0 },
+            { denomination: 1, count: parseInt(document.getElementById('coin1').value) || 0 }
+          ]
+        };
+
+        const response = await fetch(`/api/registers/${currentRegisterId}/close`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user._id,
+            cashCount,
+            notes: document.getElementById('closeNotes').value
+          })
+        });
+
+        if (response.ok) {
+          closeModal('closeRegisterModal');
+          loadActiveRegisters();
+        } else {
+          const error = await response.json();
+          throw new Error(error.message);
+        }
+      } catch (error) {
+        alert('Error closing register: ' + error.message);
+      }
+    });
+  </script>
+
+  <style>
+    .registers-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .register-actions {
+      margin-bottom: 20px;
+    }
+
+    .registers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .register-card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background-color: white;
+      margin: 10% auto;
+      padding: 20px;
+      width: 80%;
+      max-width: 600px;
+      border-radius: 8px;
+    }
+
+    .cash-count {
+      margin: 20px 0;
+    }
+
+    .denomination-inputs {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .total-section {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .register-card, .modal-content {
+        background-color: #333;
+        color: white;
+      }
+
+      .total-section {
+        background-color: #444;
+      }
+    }
+  </style>
+</body>
+</html>

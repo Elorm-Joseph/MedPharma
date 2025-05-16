@@ -1,0 +1,119 @@
+<nav class="main-nav">
+  <div class="nav-left">
+    <a href="index.html" class="nav-logo">Pharmacy Management</a>
+    <input type="text" id="searchInput" placeholder="Search medicine..." aria-label="Search medicine" />
+    <button id="searchBtn" aria-label="Search">Search</button>
+  </div>
+  <div class="nav-right">
+    <a href="purchaseOrders.html">Purchase Orders</a>
+    <a href="stockMovements.html">Stock Movements</a>
+    <a href="goodsReceipt.html">Goods Receipt</a>
+    <a href="supplierPerformance.html">Supplier Performance</a>
+    <a href="alerts.html">Alerts</a>
+    <a href="reports.html">Reports</a>
+    <a href="stores.html">Stores</a>
+    <a href="pos.html">Point of Sale</a>
+    <a href="registers.html">Registers</a>
+    <a href="logout.html">Logout</a>
+  </div>
+</nav>
+
+<style>
+  .main-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #222;
+    padding: 10px 20px;
+    color: white;
+  }
+
+  .nav-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .nav-logo {
+    font-weight: bold;
+    font-size: 1.2rem;
+    color: white;
+    text-decoration: none;
+  }
+
+  #searchInput {
+    padding: 5px 10px;
+    border-radius: 4px;
+    border: none;
+    width: 200px;
+  }
+
+  #searchBtn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+  }
+
+  #searchBtn:hover {
+    background-color: #0056b3;
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+
+  .nav-right a {
+    color: white;
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+  }
+
+  .nav-right a:hover {
+    background-color: #444;
+  }
+
+  @media (max-width: 1200px) {
+    .nav-right {
+      flex-wrap: wrap;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .main-nav {
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .nav-left {
+      width: 100%;
+    }
+
+    .nav-right {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
+
+<script>
+  document.getElementById('searchBtn').addEventListener('click', () => {
+    const query = document.getElementById('searchInput').value.trim();
+    if (query) {
+      window.location.href = `inventorySearch.html?query=${encodeURIComponent(query)}`;
+    }
+  });
+
+  document.getElementById('searchInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('searchBtn').click();
+    }
+  });
+</script>
