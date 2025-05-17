@@ -30,24 +30,63 @@
         </div>
 
         <div class="filters">
-          <select id="categoryFilter" onchange="filterResults()">
-            <option value="all">All Categories</option>
-            <option value="tablets">Tablets</option>
-            <option value="syrups">Syrups</option>
-            <option value="injections">Injections</option>
-            <option value="medical_supplies">Medical Supplies</option>
-          </select>
+          <div class="filter-group">
+            <select id="categoryFilter" onchange="filterResults()">
+              <option value="all">All Categories</option>
+              <option value="tablets">Tablets</option>
+              <option value="syrups">Syrups</option>
+              <option value="injections">Injections</option>
+              <option value="medical_supplies">Medical Supplies</option>
+            </select>
 
-          <select id="storeFilter" onchange="filterResults()">
-            <option value="all">All Stores</option>
-          </select>
+            <select id="therapeuticCategoryFilter" onchange="filterResults()">
+              <option value="all">All Therapeutic Categories</option>
+              <!-- Will be populated dynamically -->
+            </select>
 
-          <select id="stockFilter" onchange="filterResults()">
-            <option value="all">All Stock Levels</option>
-            <option value="in_stock">In Stock</option>
-            <option value="low_stock">Low Stock</option>
-            <option value="out_of_stock">Out of Stock</option>
-          </select>
+            <select id="storeFilter" onchange="filterResults()">
+              <option value="all">All Stores</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <select id="stockFilter" onchange="filterResults()">
+              <option value="all">All Stock Levels</option>
+              <option value="in_stock">In Stock</option>
+              <option value="low_stock">Low Stock</option>
+              <option value="out_of_stock">Out of Stock</option>
+            </select>
+
+            <div class="price-range">
+              <input type="number" id="minPrice" placeholder="Min Price (₵)" onchange="filterResults()" />
+              <input type="number" id="maxPrice" placeholder="Max Price (₵)" onchange="filterResults()" />
+            </div>
+
+            <input type="date" id="expiryBefore" onchange="filterResults()" title="Filter by expiry date" />
+          </div>
+        </div>
+      </div>
+
+      <div class="inventory-stats">
+        <div class="stat-card">
+          <h4>Total Items</h4>
+          <p id="totalItems">-</p>
+        </div>
+        <div class="stat-card">
+          <h4>Low Stock</h4>
+          <p id="lowStockItems">-</p>
+        </div>
+        <div class="stat-card">
+          <h4>Out of Stock</h4>
+          <p id="outOfStockItems">-</p>
+        </div>
+        <div class="stat-card">
+          <h4>Expiring Soon</h4>
+          <p id="expiringItems">-</p>
+        </div>
+        <div class="stat-card">
+          <h4>Total Value</h4>
+          <p id="totalValue">-</p>
         </div>
       </div>
 
@@ -65,24 +104,36 @@
   <div id="footer-placeholder"></div>
 
   <script>
-    // Load navigation and footer
-    fetch('components/navigation.html')
-      .then(response => response.text())
-      .then(html => {
-        document.getElementById('nav-placeholder').innerHTML = html;
-      });
+    // Load components and initialize
+    async function initialize() {
+      // Load navigation and footer
+      const [navResponse, footerResponse] = await Promise.all([
+        fetch('components/navigation.html'),
+        fetch('components/footer.html')
+      ]);
 
-    fetch('components/footer.html')
-      .then(response => response.text())
-      .then(html => {
-        document.getElementById('footer-placeholder').innerHTML = html;
-      });
+      const [navHtml, footerHtml] = await Promise.all([
+        navResponse.text(),
+        footerResponse.text()
+      ]);
 
-    // Get search query from URL if present
-    const urlParams = new URLSearchParams(window.location.search);
-    const searchQuery = urlParams.get('query');
-    if (searchQuery) {
-      document.getElementById('searchInput').value = searchQuery;
+      document.getElementById('nav-placeholder').innerHTML = navHtml;
+      document.getElementById('footer-placeholder').innerHTML = footerHtml;
+
+      // Load initial data
+      await Promise.all([
+        loadStats(),
+        loadTherapeuticCategories()
+      ]);
+
+      // Get search query from URL if present
+      const urlParams = new URLSearchParams(window.location.search);
+      const searchQuery = urlParams.get('query');
+      if (searchQuery) {
+        document.getElementById('searchInput').value = searchQuery;
+      }
+      
+      // Perform initial search
       performSearch();
     }
 
@@ -92,8 +143,24 @@
       const store = document.getElementById('storeFilter').value;
       const stock = document.getElementById('stockFilter').value;
 
+      const therapeuticCategory = document.getElementById('therapeuticCategoryFilter').value;
+      const minPrice = document.getElementById('minPrice').value;
+      const maxPrice = document.getElementById('maxPrice').value;
+      const expiryBefore = document.getElementById('expiryBefore').value;
+
       try {
-        const response = await fetch(`/api/inventory/search?query=${query}&category=${category}&store=${store}&stock=${stock}`);
+        const params = new URLSearchParams({
+          query,
+          category,
+          store,
+          stock,
+          therapeuticCategory,
+          ...(minPrice && { minPrice }),
+          ...(maxPrice && { maxPrice }),
+          ...(expiryBefore && { expiryBefore })
+        });
+
+        const response = await fetch(`/api/inventory/search?${params}`);
         const results = await response.json();
         displayResults(results);
       } catch (error) {
@@ -101,22 +168,63 @@
       }
     }
 
+    async function loadStats() {
+      try {
+        const response = await fetch('/api/inventory/stats/overview');
+        const stats = await response.json();
+        
+        document.getElementById('totalItems').textContent = stats.totalItems;
+        document.getElementById('lowStockItems').textContent = stats.lowStockItems;
+        document.getElementById('outOfStockItems').textContent = stats.outOfStockItems;
+        document.getElementById('expiringItems').textContent = stats.expiringItems;
+        document.getElementById('totalValue').textContent = stats.formattedTotalValue;
+      } catch (error) {
+        console.error('Error loading stats:', error);
+      }
+    }
+
+    async function loadTherapeuticCategories() {
+      try {
+        const response = await fetch('/api/inventory/categories/therapeutic');
+        const categories = await response.json();
+        
+        const select = document.getElementById('therapeuticCategoryFilter');
+        categories.forEach(category => {
+          const option = document.createElement('option');
+          option.value = category;
+          option.textContent = category;
+          select.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Error loading therapeutic categories:', error);
+      }
+    }
+
     function displayResults(results) {
       const grid = document.getElementById('resultsGrid');
-      grid.innerHTML = results.map(item => `
-        <div class="inventory-card ${getStockLevelClass(item.quantity)}">
-          <h3>${item.name}</h3>
-          <p><strong>Category:</strong> ${item.category}</p>
-          <p><strong>Code:</strong> ${item.code}</p>
-          <p><strong>Stock:</strong> ${item.quantity}</p>
-          <p><strong>Store:</strong> ${item.store.name}</p>
-          <p><strong>Price:</strong> $${item.price.toFixed(2)}</p>
-          <div class="card-actions">
-            <button onclick="viewDetails('${item._id}')">View Details</button>
-            <button onclick="updateStock('${item._id}')">Update Stock</button>
+      grid.innerHTML = results.map(item => {
+        const stockClass = getStockLevelClass(item.quantity);
+        const expiryWarning = getExpiryWarning(item.expiryDate);
+        
+        return `
+          <div class="inventory-card ${stockClass}">
+            <h3>${item.name}</h3>
+            <div class="item-details">
+              <p><strong>Category:</strong> ${item.category}</p>
+              <p><strong>Therapeutic Category:</strong> ${item.therapeuticCategory || 'N/A'}</p>
+              <p><strong>NDC:</strong> ${item.ndcCode || 'N/A'}</p>
+              <p><strong>Stock:</strong> ${item.quantity}</p>
+              <p><strong>Store:</strong> ${item.store?.name || 'Main Store'}</p>
+              <p><strong>Price:</strong> ${item.formattedPrice}</p>
+              ${expiryWarning ? `<p class="expiry-warning">${expiryWarning}</p>` : ''}
+            </div>
+            <div class="card-actions">
+              <button onclick="viewDetails('${item._id}')" class="btn-primary">View Details</button>
+              <button onclick="updateStock('${item._id}')" class="btn-secondary">Update Stock</button>
+            </div>
           </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     function getStockLevelClass(quantity) {
@@ -125,13 +233,16 @@
       return 'in-stock';
     }
 
-    // Initialize
-    document.addEventListener('DOMContentLoaded', () => {
-      loadStores();
-      if (!searchQuery) {
-        performSearch(); // Load all items if no search query
+    function getExpiryWarning(expiryDate) {
+      const daysUntilExpiry = Math.ceil((new Date(expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
+      if (daysUntilExpiry <= 30) {
+        return `⚠️ Expires in ${daysUntilExpiry} days`;
       }
-    });
+      return null;
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', initialize);
   </script>
 
   <style>
@@ -160,6 +271,7 @@
 
     .filters {
       display: flex;
+      flex-direction: column;
       gap: 10px;
     }
 
@@ -189,12 +301,6 @@
       border-left: 4px solid #28a745;
     }
 
-    .card-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
     .pagination {
       display: flex;
       justify-content: center;
@@ -202,16 +308,88 @@
       margin-top: 20px;
     }
 
+    /* Enhanced styles */
+    .filter-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .price-range {
+      display: flex;
+      gap: 5px;
+    }
+
+    .price-range input {
+      width: 120px;
+    }
+
+    .inventory-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    .stat-card h4 {
+      margin: 0 0 10px 0;
+      color: #666;
+    }
+
+    .stat-card p {
+      margin: 0;
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .item-details {
+      margin: 10px 0;
+    }
+
+    .expiry-warning {
+      color: #dc3545;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .btn-primary {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
     @media (prefers-color-scheme: dark) {
-      .inventory-card {
+      .stat-card {
         background-color: #333;
-        color: white;
       }
 
-      input, select {
-        background-color: #444;
-        color: white;
-        border: 1px solid #555;
+      .stat-card h4 {
+        color: #aaa;
+      }
+
+      .stat-card p {
+        color: #fff;
       }
     }
   </style>

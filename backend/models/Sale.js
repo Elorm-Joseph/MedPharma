@@ -1,104 +1,42 @@
 const mongoose = require('mongoose');
 
 const SaleSchema = new mongoose.Schema({
-  saleNumber: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  store: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Store',
-    required: true
-  },
-  cashier: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
+  customerName: { type: String, required: true },
+  saleDate: { type: Date, required: true, default: Date.now },
   items: [{
     product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Inventory',
       required: true
     },
-    quantity: {
-      type: Number,
-      required: true
+    quantity: { type: Number, required: true },
+    price: {
+      amount: { type: Number, required: true },
+      currency: { type: String, default: 'GHS', enum: ['GHS'] }
     },
-    unitPrice: {
-      type: Number,
-      required: true
-    },
-    discount: {
-      type: Number,
-      default: 0
-    },
-    subtotal: Number
+    discount: { type: Number, default: 0 }
   }],
-  customer: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Customer'
-  },
-  prescription: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Prescription'
-  },
-  subtotal: {
-    type: Number,
-    required: true
-  },
-  tax: {
-    type: Number,
-    required: true
-  },
-  discount: {
-    type: Number,
-    default: 0
-  },
-  total: {
-    type: Number,
-    required: true
+  totalAmount: {
+    amount: { type: Number, required: true },
+    currency: { type: String, default: 'GHS', enum: ['GHS'] }
   },
   paymentMethod: {
     type: String,
-    enum: ['cash', 'card', 'mobile_money', 'insurance'],
-    required: true
+    required: true,
+    enum: ['cash', 'card', 'mobile_money', 'insurance']
   },
-  paymentStatus: {
-    type: String,
-    enum: ['pending', 'completed', 'failed'],
-    default: 'pending'
+  insurance: {
+    provider: String,
+    policyNumber: String
   },
-  register: {
+  cashier: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Register',
-    required: true
+    ref: 'User'
   },
-  notes: String
-}, {
-  timestamps: true
-});
-
-// Generate sale number before saving
-SaleSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    const date = new Date();
-    const year = date.getFullYear().toString().slice(-2);
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    
-    // Get count of sales for today
-    const count = await mongoose.model('Sale').countDocuments({
-      createdAt: {
-        $gte: new Date(date.setHours(0, 0, 0, 0)),
-        $lt: new Date(date.setHours(23, 59, 59, 999))
-      }
-    });
-    
-    this.saleNumber = `S${year}${month}${day}-${(count + 1).toString().padStart(4, '0')}`;
+  store: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Store'
   }
-  next();
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model('Sale', SaleSchema);

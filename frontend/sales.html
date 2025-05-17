@@ -1,1 +1,435 @@
-<!-- Sales Page -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sales - Pharmacy Management System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/background.css" />
+</head>
+<body>
+  <!-- Background Slideshow -->
+  <div class="background-slideshow">
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+  </div>
+
+  <!-- Navigation -->
+  <div id="nav-placeholder"></div>
+
+  <div class="content-overlay">
+    <div class="sales-container">
+      <h1>Sales</h1>
+
+      <div class="stats-section">
+        <div class="stat-card">
+          <h4>Total Sales</h4>
+          <p id="totalSales">-</p>
+        </div>
+        <div class="stat-card">
+          <h4>Today's Sales</h4>
+          <p id="todaysSales">-</p>
+        </div>
+        <div class="stat-card">
+          <h4>Total Revenue</h4>
+          <p id="totalRevenue">-</p>
+        </div>
+      </div>
+
+      <section class="form-section">
+        <h2>Record New Sale</h2>
+        <form id="salesForm" class="styled-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="customerName">Customer Name:</label>
+              <input type="text" id="customerName" name="customerName" required />
+            </div>
+            <div class="form-group">
+              <label for="saleDate">Sale Date:</label>
+              <input type="date" id="saleDate" name="saleDate" required />
+            </div>
+          </div>
+
+          <div class="items-section">
+            <div class="section-header">
+              <h3>Sale Items</h3>
+              <button type="button" class="btn-primary" onclick="addItem()">Add Item</button>
+            </div>
+            <div id="itemsContainer" class="items-container"></div>
+          </div>
+
+          <button type="submit" class="btn-primary submit-btn">Record Sale</button>
+        </form>
+      </section>
+
+      <section class="sales-section">
+        <h2>Sales History</h2>
+        <div class="table-container">
+          <table id="salesTable">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Sale Date</th>
+                <th>Total Amount</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div id="footer-placeholder"></div>
+
+  <script>
+    // Load navigation and footer
+    fetch('components/navigation.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('nav-placeholder').innerHTML = html;
+      });
+
+    fetch('components/footer.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('footer-placeholder').innerHTML = html;
+      });
+
+    function addItem() {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'sale-item';
+      itemDiv.innerHTML = `
+        <div class="form-row">
+          <div class="form-group">
+            <label>Item:</label>
+            <select class="inventoryItemId" required>
+              <option value="">Select Item</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Quantity:</label>
+            <input type="number" class="quantity" min="1" required>
+          </div>
+          <div class="form-group">
+            <label>Price (₵):</label>
+            <input type="number" class="price" min="0" step="0.01" required>
+          </div>
+          <button type="button" class="btn-danger" onclick="removeItem(this)">Remove</button>
+        </div>
+      `;
+      document.getElementById('itemsContainer').appendChild(itemDiv);
+      loadInventoryItems(itemDiv.querySelector('.inventoryItemId'));
+    }
+
+    async function loadInventoryItems(select) {
+      try {
+        const response = await fetch('/api/inventory');
+        const items = await response.json();
+        items.forEach(item => {
+          const option = document.createElement('option');
+          option.value = item._id;
+          option.textContent = `${item.name} (${item.formattedPrice})`;
+          select.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Failed to load inventory items:', error);
+      }
+    }
+
+    function removeItem(button) {
+      button.closest('.sale-item').remove();
+    }
+
+    document.getElementById('salesForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const customerName = document.getElementById('customerName').value;
+      const saleDate = document.getElementById('saleDate').value;
+
+      const itemElements = document.querySelectorAll('.sale-item');
+      const items = [];
+      itemElements.forEach(div => {
+        const inventoryItemId = div.querySelector('.inventoryItemId').value;
+        const quantity = parseInt(div.querySelector('.quantity').value);
+        const price = parseFloat(div.querySelector('.price').value);
+        items.push({ inventoryItem: inventoryItemId, quantity, price });
+      });
+
+      const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+
+      const sale = {
+        customerName,
+        saleDate,
+        items,
+        totalAmount
+      };
+
+      try {
+        const response = await fetch('/api/sales', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sale)
+        });
+        if (response.ok) {
+          alert('Sale recorded successfully');
+          loadSales();
+          document.getElementById('salesForm').reset();
+          document.getElementById('itemsContainer').innerHTML = '';
+        } else {
+          alert('Failed to record sale');
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    });
+
+    async function loadSales() {
+      try {
+        const response = await fetch('/api/sales');
+        const sales = await response.json();
+        const tbody = document.querySelector('#salesTable tbody');
+        tbody.innerHTML = '';
+
+        let totalSales = 0;
+        let todaysSales = 0;
+        let totalRevenue = 0;
+        const today = new Date().toISOString().slice(0, 10);
+
+        sales.forEach(sale => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${sale.customerName}</td>
+            <td>${new Date(sale.saleDate).toLocaleDateString()}</td>
+            <td>₵${sale.totalAmount.toFixed(2)}</td>
+            <td><button onclick="viewSale('${sale._id}')" class="btn-secondary">View</button></td>
+          `;
+          tbody.appendChild(tr);
+
+          totalSales++;
+          totalRevenue += sale.totalAmount;
+          if (sale.saleDate.slice(0, 10) === today) {
+            todaysSales++;
+          }
+        });
+
+        document.getElementById('totalSales').textContent = totalSales;
+        document.getElementById('todaysSales').textContent = todaysSales;
+        document.getElementById('totalRevenue').textContent = `₵${totalRevenue.toFixed(2)}`;
+      } catch (error) {
+        console.error('Failed to load sales:', error);
+      }
+    }
+
+    async function viewSale(id) {
+      window.location.href = `/sales/${id}`;
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSales();
+    });
+  </script>
+
+  <style>
+    .sales-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .stats-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    .stat-card h4 {
+      margin: 0 0 10px 0;
+      color: #666;
+    }
+
+    .stat-card p {
+      margin: 0;
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .form-section {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .styled-form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 15px;
+    }
+
+    .form-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .form-group label {
+      font-weight: bold;
+      color: #666;
+    }
+
+    .form-group input,
+    .form-group select {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .items-section {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      margin-top: 15px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .items-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .sale-item {
+      padding: 10px;
+      border: 1px solid #eee;
+      border-radius: 4px;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-top: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+
+    th {
+      background-color: #f8f9fa;
+      font-weight: bold;
+    }
+
+    .btn-primary {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .submit-btn {
+      margin-top: 20px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .form-section,
+      .stat-card,
+      .table-container {
+        background-color: #333;
+        color: white;
+      }
+
+      .stat-card h4 {
+        color: #aaa;
+      }
+
+      .stat-card p {
+        color: #fff;
+      }
+
+      .form-group label {
+        color: #aaa;
+      }
+
+      input, select {
+        background-color: #444;
+        color: white;
+        border: 1px solid #555;
+      }
+
+      th {
+        background-color: #444;
+        color: white;
+      }
+
+      td {
+        border-bottom: 1px solid #444;
+      }
+
+      .sale-item {
+        border-color: #444;
+      }
+
+      .items-section {
+        border-color: #444;
+      }
+    }
+  </style>
+</body>
+</html>

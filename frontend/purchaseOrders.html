@@ -5,56 +5,171 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Purchase Orders - Pharmacy Management System</title>
   <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/background.css" />
 </head>
 <body>
-  <h1>Purchase Orders</h1>
-  <section>
-    <form id="purchaseOrderForm">
-      <label for="supplier">Supplier:</label>
-      <input type="text" id="supplier" name="supplier" required />
-      <label for="orderDate">Order Date:</label>
-      <input type="date" id="orderDate" name="orderDate" required />
-      <label for="expectedDeliveryDate">Expected Delivery Date:</label>
-      <input type="date" id="expectedDeliveryDate" name="expectedDeliveryDate" />
-      <button type="button" onclick="addItem()">Add Item</button>
-      <div id="itemsContainer"></div>
-      <button type="submit">Submit Purchase Order</button>
-    </form>
-  </section>
+  <!-- Background Slideshow -->
+  <div class="background-slideshow">
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+  </div>
 
-  <section>
-    <h2>Existing Purchase Orders</h2>
-    <table id="purchaseOrdersTable" border="1">
-      <thead>
-        <tr>
-          <th>Supplier</th>
-          <th>Order Date</th>
-          <th>Expected Delivery</th>
-          <th>Status</th>
-          <th>Total Amount</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </section>
+  <!-- Navigation -->
+  <div id="nav-placeholder"></div>
 
-  <script src="js/app.js"></script>
+  <div class="content-overlay">
+    <div class="purchase-orders-container">
+      <h1>Purchase Orders</h1>
+
+      <div class="stats-section">
+        <div class="stat-card">
+          <h4>Total Orders</h4>
+          <p id="totalOrders">-</p>
+        </div>
+        <div class="stat-card">
+          <h4>Pending Orders</h4>
+          <p id="pendingOrders">-</p>
+        </div>
+        <div class="stat-card">
+          <h4>Total Value</h4>
+          <p id="totalValue">-</p>
+        </div>
+      </div>
+
+      <section class="form-section">
+        <h2>Create Purchase Order</h2>
+        <form id="purchaseOrderForm" class="styled-form">
+          <div class="form-group">
+            <label for="supplier">Supplier:</label>
+            <select id="supplier" name="supplier" required>
+              <option value="">Select Supplier</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="orderDate">Order Date:</label>
+              <input type="date" id="orderDate" name="orderDate" required />
+            </div>
+            <div class="form-group">
+              <label for="expectedDeliveryDate">Expected Delivery:</label>
+              <input type="date" id="expectedDeliveryDate" name="expectedDeliveryDate" required />
+            </div>
+          </div>
+
+          <div class="items-section">
+            <div class="section-header">
+              <h3>Order Items</h3>
+              <button type="button" class="btn-primary" onclick="addItem()">Add Item</button>
+            </div>
+            <div id="itemsContainer" class="items-container"></div>
+          </div>
+
+          <button type="submit" class="btn-primary submit-btn">Create Purchase Order</button>
+        </form>
+      </section>
+
+      <section class="orders-section">
+        <h2>Existing Purchase Orders</h2>
+        <div class="table-container">
+          <table id="purchaseOrdersTable">
+            <thead>
+              <tr>
+                <th>Supplier</th>
+                <th>Order Date</th>
+                <th>Expected Delivery</th>
+                <th>Status</th>
+                <th>Total Amount</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div id="footer-placeholder"></div>
+
   <script>
+    // Load navigation and footer
+    fetch('components/navigation.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('nav-placeholder').innerHTML = html;
+      });
+
+    fetch('components/footer.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('footer-placeholder').innerHTML = html;
+      });
+
     let items = [];
+
+    async function loadSuppliers() {
+      try {
+        const response = await fetch('/api/suppliers');
+        const suppliers = await response.json();
+        const select = document.getElementById('supplier');
+        suppliers.forEach(supplier => {
+          const option = document.createElement('option');
+          option.value = supplier._id;
+          option.textContent = supplier.name;
+          select.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Failed to load suppliers:', error);
+      }
+    }
 
     function addItem() {
       const itemDiv = document.createElement('div');
+      itemDiv.className = 'order-item';
       itemDiv.innerHTML = `
-        <label>Inventory Item ID: <input type="text" class="inventoryItemId" required></label>
-        <label>Quantity: <input type="number" class="quantity" min="1" required></label>
-        <label>Price: <input type="number" class="price" min="0" step="0.01" required></label>
-        <button type="button" onclick="removeItem(this)">Remove</button>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Item:</label>
+            <select class="inventoryItemId" required>
+              <option value="">Select Item</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Quantity:</label>
+            <input type="number" class="quantity" min="1" required>
+          </div>
+          <div class="form-group">
+            <label>Price (₵):</label>
+            <input type="number" class="price" min="0" step="0.01" required>
+          </div>
+          <button type="button" class="btn-danger" onclick="removeItem(this)">Remove</button>
+        </div>
       `;
       document.getElementById('itemsContainer').appendChild(itemDiv);
+      loadInventoryItems(itemDiv.querySelector('.inventoryItemId'));
+    }
+
+    async function loadInventoryItems(select) {
+      try {
+        const response = await fetch('/api/inventory');
+        const items = await response.json();
+        items.forEach(item => {
+          const option = document.createElement('option');
+          option.value = item._id;
+          option.textContent = `${item.name} (${item.formattedPrice})`;
+          select.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Failed to load inventory items:', error);
+      }
     }
 
     function removeItem(button) {
-      button.parentElement.remove();
+      button.closest('.order-item').remove();
     }
 
     document.getElementById('purchaseOrderForm').addEventListener('submit', async (e) => {
@@ -63,7 +178,7 @@
       const orderDate = document.getElementById('orderDate').value;
       const expectedDeliveryDate = document.getElementById('expectedDeliveryDate').value;
 
-      const itemElements = document.querySelectorAll('#itemsContainer > div');
+      const itemElements = document.querySelectorAll('.order-item');
       const items = [];
       itemElements.forEach(div => {
         const inventoryItemId = div.querySelector('.inventoryItemId').value;
@@ -107,23 +222,282 @@
         const purchaseOrders = await response.json();
         const tbody = document.querySelector('#purchaseOrdersTable tbody');
         tbody.innerHTML = '';
+        
+        let totalValue = 0;
+        let pendingCount = 0;
+
         purchaseOrders.forEach(po => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${po.supplier.name || po.supplier}</td>
             <td>${new Date(po.orderDate).toLocaleDateString()}</td>
             <td>${po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString() : ''}</td>
-            <td>${po.status}</td>
-            <td>${po.totalAmount.toFixed(2)}</td>
+            <td><span class="status-badge ${po.status.toLowerCase()}">${po.status}</span></td>
+            <td>₵${po.totalAmount.toFixed(2)}</td>
+            <td>
+              <button onclick="viewOrder('${po._id}')" class="btn-secondary">View</button>
+              ${po.status === 'PENDING' ? `<button onclick="approveOrder('${po._id}')" class="btn-primary">Approve</button>` : ''}
+            </td>
           `;
           tbody.appendChild(tr);
+
+          totalValue += po.totalAmount;
+          if (po.status === 'PENDING') pendingCount++;
         });
+
+        // Update stats
+        document.getElementById('totalOrders').textContent = purchaseOrders.length;
+        document.getElementById('pendingOrders').textContent = pendingCount;
+        document.getElementById('totalValue').textContent = `₵${totalValue.toFixed(2)}`;
       } catch (error) {
         console.error('Failed to load purchase orders:', error);
       }
     }
 
-    loadPurchaseOrders();
+    async function viewOrder(id) {
+      // Implement view order details
+      window.location.href = `/purchaseOrders/${id}`;
+    }
+
+    async function approveOrder(id) {
+      try {
+        const response = await fetch(`/api/purchaseOrders/${id}/approve`, {
+          method: 'PUT'
+        });
+        if (response.ok) {
+          loadPurchaseOrders();
+        } else {
+          alert('Failed to approve order');
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSuppliers();
+      loadPurchaseOrders();
+    });
   </script>
+
+  <style>
+    .purchase-orders-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .stats-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    .stat-card h4 {
+      margin: 0 0 10px 0;
+      color: #666;
+    }
+
+    .stat-card p {
+      margin: 0;
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .form-section {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .styled-form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 15px;
+    }
+
+    .form-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .form-group label {
+      font-weight: bold;
+      color: #666;
+    }
+
+    .form-group input,
+    .form-group select {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .items-section {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      margin-top: 15px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .items-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .order-item {
+      padding: 10px;
+      border: 1px solid #eee;
+      border-radius: 4px;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-top: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+
+    th {
+      background-color: #f8f9fa;
+      font-weight: bold;
+    }
+
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+
+    .status-badge.pending {
+      background-color: #ffc107;
+      color: #000;
+    }
+
+    .status-badge.approved {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .status-badge.received {
+      background-color: #007bff;
+      color: white;
+    }
+
+    .btn-primary {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .submit-btn {
+      margin-top: 20px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .form-section,
+      .stat-card,
+      .table-container {
+        background-color: #333;
+        color: white;
+      }
+
+      .stat-card h4 {
+        color: #aaa;
+      }
+
+      .stat-card p {
+        color: #fff;
+      }
+
+      .form-group label {
+        color: #aaa;
+      }
+
+      input, select {
+        background-color: #444;
+        color: white;
+        border: 1px solid #555;
+      }
+
+      th {
+        background-color: #444;
+        color: white;
+      }
+
+      td {
+        border-bottom: 1px solid #444;
+      }
+
+      .order-item {
+        border-color: #444;
+      }
+
+      .items-section {
+        border-color: #444;
+      }
+    }
+  </style>
 </body>
 </html>

@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Goods Receipt - Pharmacy Management System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/background.css" />
+</head>
+<body>
+  <!-- Background Slideshow -->
+  <div class="background-slideshow">
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+    <div class="background-slide"></div>
+  </div>
+
+  <!-- Navigation -->
+  <div id="nav-placeholder"></div>
+
+  <div class="content-overlay">
+    <div class="goods-receipt-container">
+      <h1>Goods Receipt</h1>
+
+      <div class="stats-section">
+        <div class="stat-card">
+          <h4>Pending Receipts</h4>
+          <p id="pendingReceipts">-</p>
+        </div>
+        <div class="stat-card">
+          <h4>Today's Receipts</h4>
+          <p id="todaysReceipts">-</p>
+        </div>
+        <div class="stat-card">
+          <h4>Total Value</h4>
+          <p id="totalValue">-</p>
+        </div>
+      </div>
+
+      <section class="form-section">
+        <h2>Record Goods Receipt</h2>
+        <form id="goodsReceiptForm" class="styled-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="purchaseOrder">Purchase Order:</label>
+              <select id="purchaseOrder" name="purchaseOrder" required>
+                <option value="">Select Purchase Order</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="receiptDate">Receipt Date:</label>
+              <input type="date" id="receiptDate" name="receiptDate" required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="supplier">Supplier:</label>
+              <input type="text" id="supplier" readonly />
+            </div>
+            <div class="form-group">
+              <label for="invoiceNumber">Invoice Number:</label>
+              <input type="text" id="invoiceNumber" name="invoiceNumber" required maxlength="20" />
+            </div>
+          </div>
+
+          <div class="items-section">
+            <h3>Received Items</h3>
+            <div id="itemsContainer" class="items-container">
+              <!-- Items will be loaded here -->
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="notes">Notes:</label>
+              <textarea id="notes" name="notes" rows="3"></textarea>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary submit-btn">Record Receipt</button>
+        </form>
+      </section>
+
+      <section class="receipts-section">
+        <h2>Recent Receipts</h2>
+        <div class="table-container">
+          <table id="receiptsTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>PO Number</th>
+                <th>Supplier</th>
+                <th>Invoice Number</th>
+                <th>Total Value</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div id="footer-placeholder"></div>
+
+  <script>
+    // Load navigation and footer
+    fetch('components/navigation.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('nav-placeholder').innerHTML = html;
+      });
+
+    fetch('components/footer.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('footer-placeholder').innerHTML = html;
+      });
+
+    let currentPurchaseOrder = null;
+
+    async function loadPendingPurchaseOrders() {
+      try {
+        const response = await fetch('/api/purchaseOrders?status=APPROVED');
+        const orders = await response.json();
+        const select = document.getElementById('purchaseOrder');
+        
+        orders.forEach(order => {
+          const option = document.createElement('option');
+          option.value = order._id;
+          option.textContent = `PO-${order._id.slice(-6)} - ${order.supplier.name}`;
+          select.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Failed to load purchase orders:', error);
+      }
+    }
+
+    async function loadPurchaseOrderDetails(orderId) {
+      try {
+        const response = await fetch(`/api/purchaseOrders/${orderId}`);
+        currentPurchaseOrder = await response.json();
+        
+        document.getElementById('supplier').value = currentPurchaseOrder.supplier.name;
+        displayOrderItems(currentPurchaseOrder.items);
+      } catch (error) {
+        console.error('Failed to load purchase order details:', error);
+      }
+    }
+
+    function displayOrderItems(items) {
+      const container = document.getElementById('itemsContainer');
+      container.innerHTML = items.map((item, index) => `
+        <div class="receipt-item">
+          <div class="item-details">
+            <span class="item-name">${item.inventoryItem.name}</span>
+            <div class="item-info">
+              <span>Ordered: ${item.quantity}</span>
+              <span>Price: ₵${item.price.toFixed(2)}</span>
+            </div>
+          </div>
+          <div class="receipt-controls">
+            <div class="form-group">
+              <label>Received Quantity:</label>
+              <input type="number" class="received-quantity" 
+                     value="${item.quantity}" 
+                     min="0" 
+                     max="${item.quantity}"
+                     data-index="${index}" 
+                     required />
+            </div>
+            <div class="form-group">
+              <label>Batch Number:</label>
+              <input type="text" class="batch-number" required maxlength="20" />
+            </div>
+            <div class="form-group">
+              <label>Expiry Date:</label>
+              <input type="date" class="expiry-date" required />
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('purchaseOrder').addEventListener('change', (e) => {
+      if (e.target.value) {
+        loadPurchaseOrderDetails(e.target.value);
+      } else {
+        document.getElementById('supplier').value = '';
+        document.getElementById('itemsContainer').innerHTML = '';
+      }
+    });
+
+    document.getElementById('goodsReceiptForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const items = Array.from(document.querySelectorAll('.receipt-item')).map((item, index) => {
+        const originalItem = currentPurchaseOrder.items[index];
+        return {
+          inventoryItem: originalItem.inventoryItem._id,
+          quantity: parseInt(item.querySelector('.received-quantity').value),
+          batchNumber: item.querySelector('.batch-number').value,
+          expiryDate: item.querySelector('.expiry-date').value,
+          price: originalItem.price
+        };
+      });
+
+      const receipt = {
+        purchaseOrder: currentPurchaseOrder._id,
+        receiptDate: document.getElementById('receiptDate').value,
+        invoiceNumber: document.getElementById('invoiceNumber').value,
+        items,
+        notes: document.getElementById('notes').value
+      };
+
+      try {
+        const response = await fetch('/api/goodsReceipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(receipt)
+        });
+
+        if (response.ok) {
+          alert('Goods receipt recorded successfully');
+          loadReceipts();
+          document.getElementById('goodsReceiptForm').reset();
+          document.getElementById('itemsContainer').innerHTML = '';
+        } else {
+          alert('Failed to record goods receipt');
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    });
+
+    async function loadReceipts() {
+      try {
+        const response = await fetch('/api/goodsReceipt');
+        const receipts = await response.json();
+        const tbody = document.querySelector('#receiptsTable tbody');
+        tbody.innerHTML = '';
+
+        let totalValue = 0;
+        let todayCount = 0;
+        const today = new Date().toISOString().slice(0, 10);
+
+        receipts.forEach(receipt => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${new Date(receipt.receiptDate).toLocaleDateString()}</td>
+            <td>PO-${receipt.purchaseOrder._id.slice(-6)}</td>
+            <td>${receipt.purchaseOrder.supplier.name}</td>
+            <td>${receipt.invoiceNumber}</td>
+            <td>₵${receipt.totalValue.toFixed(2)}</td>
+            <td><span class="status-badge ${receipt.status.toLowerCase()}">${receipt.status}</span></td>
+            <td><button onclick="viewReceipt('${receipt._id}')" class="btn-secondary">View</button></td>
+          `;
+          tbody.appendChild(tr);
+
+          totalValue += receipt.totalValue;
+          if (receipt.receiptDate.slice(0, 10) === today) {
+            todayCount++;
+          }
+        });
+
+        // Update stats
+        document.getElementById('pendingReceipts').textContent = receipts.filter(r => r.status === 'PENDING').length;
+        document.getElementById('todaysReceipts').textContent = todayCount;
+        document.getElementById('totalValue').textContent = `₵${totalValue.toFixed(2)}`;
+      } catch (error) {
+        console.error('Failed to load receipts:', error);
+      }
+    }
+
+    async function viewReceipt(id) {
+      window.location.href = `/goodsReceipt/${id}`;
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadPendingPurchaseOrders();
+      loadReceipts();
+    });
+  </script>
+
+  <style>
+    .goods-receipt-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .stats-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    .stat-card h4 {
+      margin: 0 0 10px 0;
+      color: #666;
+    }
+
+    .stat-card p {
+      margin: 0;
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .form-section {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .styled-form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 15px;
+    }
+
+    .form-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .form-group label {
+      font-weight: bold;
+      color: #666;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    .items-section {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      margin-top: 15px;
+    }
+
+    .items-container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .receipt-item {
+      padding: 15px;
+      border: 1px solid #eee;
+      border-radius: 4px;
+    }
+
+    .item-details {
+      margin-bottom: 10px;
+    }
+
+    .item-name {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .item-info {
+      display: flex;
+      gap: 15px;
+      color: #666;
+    }
+
+    .receipt-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-top: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+
+    th {
+      background-color: #f8f9fa;
+      font-weight: bold;
+    }
+
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+
+    .status-badge.pending {
+      background-color: #ffc107;
+      color: #000;
+    }
+
+    .status-badge.completed {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .btn-primary {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .submit-btn {
+      margin-top: 20px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .form-section,
+      .stat-card,
+      .table-container {
+        background-color: #333;
+        color: white;
+      }
+
+      .stat-card h4 {
+        color: #aaa;
+      }
+
+      .stat-card p {
+        color: #fff;
+      }
+
+      .form-group label {
+        color: #aaa;
+      }
+
+      input, select, textarea {
+        background-color: #444;
+        color: white;
+        border: 1px solid #555;
+      }
+
+      th {
+        background-color: #444;
+        color: white;
+      }
+
+      td {
+        border-bottom: 1px solid #444;
+      }
+
+      .receipt-item {
+        border-color: #444;
+      }
+
+      .items-section {
+        border-color: #444;
+      }
+
+      .item-info {
+        color: #aaa;
+      }
+    }
+  </style>
+</body>
+</html>
